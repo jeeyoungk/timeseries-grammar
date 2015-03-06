@@ -1,0 +1,19 @@
+// Author: Jeeyoung Kim
+// PEG grammar file.
+// select COLUMNS where
+// X = VALUE
+// Y IN (VALUES)
+// , for AND
+
+
+{
+  # helper functions
+}
+
+start = STATEMENT
+
+STATEMENT = "SELECT" COLUMNS
+
+COLUMNS = COLUMN / COLUMN "," COLUMNS
+
+COLUMN = "*"

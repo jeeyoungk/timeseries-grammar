@@ -1,0 +1,16 @@
+{
+  "name": "tsdemo",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "gen-peg-browser": "./node_modules/pegjs/bin/pegjs --plugin pegjs-coffee-plugin -e PEG grammar.peg grammar.browser.js",
+    "gen-peg-npm":     "./node_modules/pegjs/bin/pegjs --plugin pegjs-coffee-plugin grammar.peg grammar.npm.js",
+    "test-jasmine":    "./node_modules/jasmine/bin/jasmine.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "pegjs": "^0.8.0"
+  }
+}
