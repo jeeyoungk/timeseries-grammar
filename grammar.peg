@@ -5,15 +5,35 @@
 // Y IN (VALUES)
 // , for AND
 
-
 {
   # helper functions
 }
 
-start = STATEMENT
+// language for querying metric definition/
+start = FIND_STATEMENT \ QUERY_STATEMENT
 
-STATEMENT = "SELECT" COLUMNS
+QUERY_STATEMENT = "select"i
+FIND_STATEMENT =  "find"i _ COLUMN_GROUP _ PREDICATE_GROUP?
 
-COLUMNS = COLUMN / COLUMN "," COLUMNS
+COLUMN_GROUP = COLUMNS
 
-COLUMN = "*"
+COLUMNS = (COLUMN _ "," _ COLUMNS) / COLUMN
+
+COLUMN = "*" / COLUMN_NAME
+
+COLUMN_NAME = [a-zA-Z0-9.]+
+
+PREDICATE_GROUP = "WHERE"i _ PREDICATES
+
+PREDICATES = (PREDICATE _ "," _ PREDICATES) / PREDICATE
+
+PREDICATE =
+  COLUMN_NAME _ "=" _ LITERAL /
+  COLUMN_NAME _ "IN"i _ "(" _ VALUES _ ")"
+
+VALUES = LITERAL _ "," _ VALUES / LITERAL
+
+LITERAL = "?" // TODO
+
+// represents ignorable whitespace.
+_ = [ ]*

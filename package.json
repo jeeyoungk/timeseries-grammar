@@ -5,12 +5,16 @@
   "main": "index.js",
   "scripts": {
     "gen-peg-browser": "./node_modules/pegjs/bin/pegjs --plugin pegjs-coffee-plugin -e PEG grammar.peg grammar.browser.js",
-    "gen-peg-npm":     "./node_modules/pegjs/bin/pegjs --plugin pegjs-coffee-plugin grammar.peg grammar.npm.js",
-    "test-jasmine":    "./node_modules/jasmine/bin/jasmine.js"
+    "gen-peg-npm": "./node_modules/pegjs/bin/pegjs --plugin pegjs-coffee-plugin grammar.peg grammar.npm.js",
+    "test-jasmine": "./node_modules/jasmine/bin/jasmine.js"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "grunt-bower-concat": "^0.4.0",
+    "grunt-contrib-coffee": "^0.13.0",
+    "grunt-contrib-uglify": "^0.8.0",
+    "grunt-contrib-watch": "^0.6.1",
     "pegjs": "^0.8.0"
   }
 }
