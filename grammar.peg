@@ -23,7 +23,8 @@ SELECT_STATEMENT =
   COMPUTE_EXPR_LIST _
   PREDICATE_EXPR? _
   GROUP_EXPR? _
-  RANGE_EXPR?
+  RANGE_EXPR? _
+  SAMPLE_EXPR?
 
 COMPUTE_EXPR_LIST = COMPUTE_EXPR (_ "," _ COMPUTE_EXPR)*
 
@@ -42,9 +43,15 @@ COMPUTE_SINGLE_EXPR =
   "(" COMPUTE_ADD_EXPR ")" /
   VARIABLE_LITERAL
 
-GROUP_EXPR = "GROUP"i _ COLUMN_LIST
+GROUP_EXPR = "GROUP"i _ "BY"i _ COLUMN_LIST
 
-RANGE_EXPR = "ORDER"i _
+RANGE_EXPR = "RANGE"i _ "(" _ TIME_EXPR _ "," _ TIME_EXPR _ ")"
+
+SAMPLE_EXPR = "SAMPLE"i _ "TO"i _ RESOLUTION_EXPR _ "BY"i _ SAMPLER_LITERAL
+
+RESOLUTION_EXPR = [0-9]+ _ DURATION_UNIT_LITERAL
+
+TIME_EXPR = "?" / STRING_LITERAL // todo
 
 FUNCTION_LITERAL = [a-z]+
 
@@ -68,9 +75,19 @@ PREDICATE =
 
 VALUE_LIST = VALUE_LITERAL (_ "," _ VALUE_LITERAL)*
 
-VALUE_LITERAL = "?" // TODO
+VALUE_LITERAL = STRING_LITERAL
 
-NUMBER_LITERAL = [0-9]+
+NUMBER_LITERAL = [0-9]+ / ([0-9]+ "." [0-9]+)
+
+STRING_LITERAL =
+  ('"' ([^"])* '"') /
+  ("'" ([^'])* "'") /
+  ([a-zA-Z0-9.]+)
+
+DURATION_UNIT_LITERAL = "minute"i / "hour"i / "day"i
+
+SAMPLER_LITERAL = "min"i/ "max"i/ "sum"i / "mean"i
+
 
 // represents ignorable whitespace.
 _ = [ ]*
