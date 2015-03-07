@@ -40,5 +40,6 @@ module.exports = (grunt) ->
 
   grunt.loadNpmTasks 'grunt-bower-concat'
   grunt.loadNpmTasks 'grunt-contrib-coffee'
+  grunt.loadNpmTasks 'grunt-contrib-jasmine'
   grunt.loadNpmTasks 'grunt-contrib-uglify'
   grunt.loadNpmTasks 'grunt-contrib-watch'

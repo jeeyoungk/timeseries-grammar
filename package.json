@@ -1,8 +1,12 @@
 {
-  "name": "tsdemo",
+  "name": "timeseries-grammar",
   "version": "0.0.0",
   "description": "",
   "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url" : "https://github.com/jeeyoungk/timeseries-grammar.git"
+  },
   "scripts": {
     "gen-peg-browser": "./node_modules/pegjs/bin/pegjs --plugin pegjs-coffee-plugin -e PEG grammar.peg grammar.browser.js",
     "gen-peg-npm": "./node_modules/pegjs/bin/pegjs --plugin pegjs-coffee-plugin grammar.peg grammar.npm.js",
@@ -13,8 +17,10 @@
   "devDependencies": {
     "grunt-bower-concat": "^0.4.0",
     "grunt-contrib-coffee": "^0.13.0",
+    "grunt-contrib-jasmine": "^0.8.2",
     "grunt-contrib-uglify": "^0.8.0",
     "grunt-contrib-watch": "^0.6.1",
-    "pegjs": "^0.8.0"
+    "pegjs": "^0.8.0",
+    "pegjs-coffee-plugin": "^0.2.2"
   }
 }
