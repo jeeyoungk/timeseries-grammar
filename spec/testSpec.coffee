@@ -31,14 +31,24 @@ describe "testing the parser ", ->
   invalid_inputs = [
     "select;"
   ]
-
   for input in valid_inputs
     do (input) ->
       it "input string [#{input}] parses", ->
-        grammar.parse(input)
+        parsed = grammar.parse(input)
 
   for input in invalid_inputs
     do (input) ->
       it "input string [#{input}] doesn't parse", ->
         expect(-> grammar.parse(input)).toThrow()
+
+describe "testing the parse tree", ->
+  valid_inputs = [
+    # "show apple, banana where v in (apple, banana), w = a"
+    "select x sample to 5 minute by min"
+  ]
+  for input in valid_inputs
+    do (input) ->
+      it "input string [#{input}] parses", ->
+        parsed = grammar.parse(input)
+        console.log JSON.stringify(parsed, null, 2)
 

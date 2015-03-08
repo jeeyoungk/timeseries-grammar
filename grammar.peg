@@ -6,7 +6,28 @@
 // , for AND
 
 {
-  # helper functions
+  # Helper functions. You write coffeescript code here.
+  makeNode = (type, params={}) ->
+    params.type = type
+    return params
+
+  @make = {
+    literal: (literal) ->
+      makeNode("literal", {value: literal})
+    columns: (columns) ->
+      makeNode("columns", {columns: columns})
+    show: (columns, predicate) ->
+      makeNode("show", {columns, predicate})
+    select: (computes, predicate, group, range, sample) ->
+      makeNode("select", {computes, predicate, group, range, sample})
+    # predicates
+    predicateSingle: (key, values) ->
+      makeNode("predicate", {key, values, subtype: 'single'})
+    predicateAnd: (predicates) ->
+      makeNode("predicate", {values: predicates, subtype: 'and'})
+  }
+  @SPACE_NODE = makeNode("whitespace")
+  @COMMA_NODE = makeNode("comma")
 }
 
 // language for querying metric definition/
@@ -20,22 +41,33 @@ start = SHOW_STATEMENT / SELECT_STATEMENT
 
 SELECT_STATEMENT =
   "SELECT"i _
-  COMPUTE_EXPR_LIST _
-  PREDICATE_EXPR? _
-  GROUP_EXPR? _
-  RANGE_EXPR? _
-  SAMPLE_EXPR?
+  computes:COMPUTE_EXPR_LIST _
+  predicate:PREDICATE_EXPR? _
+  group:GROUP_EXPR? _
+  range:RANGE_EXPR? _
+  sample:SAMPLE_EXPR?  {
+  @make.select(computes, predicate, group, range, sample)
+}
 
-COMPUTE_EXPR_LIST = COMPUTE_EXPR (_ "," _ COMPUTE_EXPR)*
+// compute expressions
+
+COMPUTE_EXPR_LIST = left:COMPUTE_EXPR right:(_ COMMA _ COMPUTE_EXPR)* {
+  # todo - extract
+  computes = [left]
+  for nodes in right
+    for node in nodes
+      computes.push node
+  computes
+}
 
 COMPUTE_EXPR = COMPUTE_ADD_EXPR
 
 COMPUTE_ADD_EXPR =
-  COMPUTE_MULT_EXPR _ [+-] _ COMPUTE_ADD_EXPR /
+  COMPUTE_MULT_EXPR _ COMPUTE_OP_ADDITION _ COMPUTE_ADD_EXPR /
   COMPUTE_MULT_EXPR
 
 COMPUTE_MULT_EXPR =
-  COMPUTE_SINGLE_EXPR _ [*/] _ COMPUTE_MULT_EXPR /
+  COMPUTE_SINGLE_EXPR _ COMPUTE_OP_MULTIPLICATION _ COMPUTE_MULT_EXPR /
   COMPUTE_SINGLE_EXPR
 
 COMPUTE_SINGLE_EXPR =
@@ -43,9 +75,14 @@ COMPUTE_SINGLE_EXPR =
   "(" COMPUTE_ADD_EXPR ")" /
   VARIABLE_LITERAL
 
+COMPUTE_OP_ADDITION =       [+-]
+COMPUTE_OP_MULTIPLICATION = [*/]
+
+// group expressions
+
 GROUP_EXPR = "GROUP"i _ "BY"i _ COLUMN_LIST
 
-RANGE_EXPR = "RANGE"i _ "(" _ TIME_EXPR _ "," _ TIME_EXPR _ ")"
+RANGE_EXPR = "RANGE"i _ "(" _ TIME_EXPR _ COMMA _ TIME_EXPR _ ")"
 
 SAMPLE_EXPR = "SAMPLE"i _ "TO"i _ RESOLUTION_EXPR _ "BY"i _ SAMPLER_LITERAL
 
@@ -53,41 +90,68 @@ RESOLUTION_EXPR = [0-9]+ _ DURATION_UNIT_LITERAL
 
 TIME_EXPR = "?" / STRING_LITERAL // todo
 
-FUNCTION_LITERAL = [a-z]+
+SHOW_STATEMENT =  "SHOW"i _ columns: COLUMN_LIST _ predicate: PREDICATE_EXPR? {
+  @make.show columns, predicate
+}
 
-VARIABLE_LITERAL = [a-zA-Z0-9.]+
+COLUMN_LIST = left:COLUMN right:(_ COMMA _ COLUMN)* {
+  columns = [left.value]
+  for nodes in right
+    for node in nodes
+      if node.type is 'literal'
+        columns.push node.value
+  @make.columns(columns)
+}
 
-SHOW_STATEMENT =  "SHOW"i _ COLUMN_LIST _ PREDICATE_EXPR?
+COLUMN = COLUMN_LITERAL
 
-COLUMN_LIST = COLUMN (_ "," _ COLUMN)*
+PREDICATE_EXPR = "WHERE"i _ list: PREDICATE_LIST { list }
 
-COLUMN = "*" / COLUMN_LITERAL
-
-COLUMN_LITERAL = [a-zA-Z0-9.]+
-
-PREDICATE_EXPR = "WHERE"i _ PREDICATES
-
-PREDICATES = (PREDICATE _ "," _ PREDICATES) / PREDICATE
+PREDICATE_LIST = left:PREDICATE right:(_ COMMA _ PREDICATE)* {
+  predicates = []
+  predicates.push left
+  for nodes in right
+    for node in nodes
+      if node.type is 'predicate'
+        predicates.push node
+  @make.predicateAnd predicates
+}
 
 PREDICATE =
-  COLUMN_LITERAL _ "=" _ VALUE_LITERAL /
-  COLUMN_LITERAL _ "IN"i _ "(" _ VALUE_LIST _ ")"
+  key:COLUMN_LITERAL _ "=" _ value:VALUE_LITERAL {
+    @make.predicateSingle(key.value, [value.value])
+  } /
+  key:COLUMN_LITERAL _ "IN"i _ "(" _ values:VALUE_LIST _ ")" {
+    @make.predicateSingle(key.value, values)
+  }
 
-VALUE_LIST = VALUE_LITERAL (_ "," _ VALUE_LITERAL)*
+VALUE_LIST = left:VALUE_LITERAL right:(_ COMMA _ VALUE_LITERAL)* {
+  values = [left.value]
+  for nodes in right
+    for node in nodes
+      if node.type is 'literal'
+        values.push node.value
+  values
+}
+
+// Literals
 
 VALUE_LITERAL = STRING_LITERAL
 
 NUMBER_LITERAL = [0-9]+ / ([0-9]+ "." [0-9]+)
 
 STRING_LITERAL =
-  ('"' ([^"])* '"') /
-  ("'" ([^'])* "'") /
-  ([a-zA-Z0-9.]+)
+  value: $ ('"' ([^"])* '"') {@make.literal value} /
+  value: $ ("'" ([^'])* "'") {@make.literal value} /
+  value: $ ([a-zA-Z0-9.]+)   {@make.literal value}
 
-DURATION_UNIT_LITERAL = "minute"i / "hour"i / "day"i
-
-SAMPLER_LITERAL = "min"i/ "max"i/ "sum"i / "mean"i
-
+FUNCTION_LITERAL =      value: $ [a-zA-Z]+             {@make.literal value}
+VARIABLE_LITERAL =      value: $ [a-zA-Z0-9.]+         {@make.literal value}
+DURATION_UNIT_LITERAL = value: $ [a-z]+                {@make.literal value}
+SAMPLER_LITERAL =       value: $ [a-z]+                {@make.literal value}
+COLUMN_LITERAL =        value: $ ([a-zA-Z0-9.]+ / "*") {@make.literal value}
 
 // represents ignorable whitespace.
-_ = [ ]*
+_ = [ ]* { this.SPACE_NODE }
+
+COMMA = "," { this.COMMA_NODE }
