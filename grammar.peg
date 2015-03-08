@@ -1,30 +1,50 @@
 // Author: Jeeyoung Kim
 // PEG grammar file.
-// select COLUMNS where
-// X = VALUE
-// Y IN (VALUES)
-// , for AND
+
+// see the test file for the possible inputs.
 
 {
   # Helper functions. You write coffeescript code here.
   makeNode = (type, params={}) ->
     params.type = type
-    return params
+    params
 
+  makeSubnode = (type, subtype, params) ->
+    params.type = type
+    params.subtype = subtype
+    params
   @make = {
-    literal: (literal) ->
-      makeNode("literal", {value: literal})
+    literal: (value) ->
+      makeNode("literal", {value})
+    numeric: (value) ->
+      makeNode("numeric", {value})
+
     columns: (columns) ->
-      makeNode("columns", {columns: columns})
+      makeNode("columns", {columns})
     show: (columns, predicate) ->
-      makeNode("show", {columns, predicate})
+      makeNode("show",    {columns,  predicate})
     select: (computes, predicate, group, range, sample) ->
-      makeNode("select", {computes, predicate, group, range, sample})
-    # predicates
-    predicateSingle: (key, values) ->
-      makeNode("predicate", {key, values, subtype: 'single'})
-    predicateAnd: (predicates) ->
-      makeNode("predicate", {values: predicates, subtype: 'and'})
+      makeNode("select",  {computes, predicate, group, range, sample})
+    range: (start, end) ->
+      makeNode("range",   {start, end})
+    sample: (resolution, sampler) ->
+      makeNode("sample",  {resolution, sampler})
+    group: (columns) ->
+      makeNode("group",   {columns})
+    predicate: {
+      single: (key, values) ->
+        makeSubnode("predicate", "single", {key, values})
+      and: (values) ->
+        makeSubnode("predicate", "and",    {values})
+    }
+    compute: {
+      apply: (name, args) ->
+        makeSubnode("comptue", "apply",    {name, arguments: args})
+      variable: (name) ->
+        makeSubnode("compute", "variable", {name})
+      constant: (value) ->
+        makeSubnode("compute", "constant", {value})
+    }
   }
   @SPACE_NODE = makeNode("whitespace")
   @COMMA_NODE = makeNode("comma")
@@ -52,77 +72,87 @@ SELECT_STATEMENT =
 // compute expressions
 
 COMPUTE_EXPR_LIST = left:COMPUTE_EXPR right:(_ COMMA _ COMPUTE_EXPR)* {
-  # todo - extract
   computes = [left]
   for nodes in right
     for node in nodes
-      computes.push node
+      if node.type is "compute"
+        computes.push node
   computes
 }
 
 COMPUTE_EXPR = COMPUTE_ADD_EXPR
 
 COMPUTE_ADD_EXPR =
-  COMPUTE_MULT_EXPR _ COMPUTE_OP_ADDITION _ COMPUTE_ADD_EXPR /
+  left: COMPUTE_MULT_EXPR _ op:OP_ADDITIVE _ right: COMPUTE_ADD_EXPR {
+    @make.compute.apply op, [left, right]
+  } /
   COMPUTE_MULT_EXPR
 
 COMPUTE_MULT_EXPR =
-  COMPUTE_SINGLE_EXPR _ COMPUTE_OP_MULTIPLICATION _ COMPUTE_MULT_EXPR /
+  left: COMPUTE_SINGLE_EXPR _ op: OP_MULTIPLICATIVE _ right: COMPUTE_MULT_EXPR {
+    @make.compute.apply op, [left, right]
+  } /
   COMPUTE_SINGLE_EXPR
 
 COMPUTE_SINGLE_EXPR =
-  FUNCTION_LITERAL _ "(" _ COMPUTE_EXPR_LIST _ ")" /
-  "(" COMPUTE_ADD_EXPR ")" /
-  VARIABLE_LITERAL
-
-COMPUTE_OP_ADDITION =       [+-]
-COMPUTE_OP_MULTIPLICATION = [*/]
+  op: FUNCTION_LITERAL _ "(" _ parameters: COMPUTE_EXPR_LIST _ ")" {
+    @make.compute.apply op, parameters
+  } /
+  "(" value: COMPUTE_ADD_EXPR ")" {
+    value
+  } /
+  value: NUMBER_LITERAL {
+    @make.compute.constant value
+  } /
+  value: VARIABLE_LITERAL {
+    @make.compute.variable value
+  }
 
 // group expressions
 
-GROUP_EXPR = "GROUP"i _ "BY"i _ COLUMN_LIST
+GROUP_EXPR = "GROUP"i SPACE "BY"i SPACE columns:COLUMN_LIST {
+  @make.group(columns)
+}
 
-RANGE_EXPR = "RANGE"i _ "(" _ TIME_EXPR _ COMMA _ TIME_EXPR _ ")"
+RANGE_EXPR = "RANGE"i _ "(" _ start:TIME_EXPR _ COMMA _ end:TIME_EXPR _ ")" {
+  @make.range(start, end)
+}
 
-SAMPLE_EXPR = "SAMPLE"i _ "TO"i _ RESOLUTION_EXPR _ "BY"i _ SAMPLER_LITERAL
+SAMPLE_EXPR = "SAMPLE"i SPACE "TO"i SPACE resolution: RESOLUTION_EXPR SPACE "BY"i SPACE sampler: SAMPLER_LITERAL {
+  @make.sample(resolution, sampler)
+}
 
-RESOLUTION_EXPR = [0-9]+ _ DURATION_UNIT_LITERAL
+RESOLUTION_EXPR = value: NUMBER_LITERAL SPACE DURATION_UNIT_LITERAL { value }
 
-TIME_EXPR = "?" / STRING_LITERAL // todo
+TIME_EXPR = STRING_LITERAL // todo
 
-SHOW_STATEMENT =  "SHOW"i _ columns: COLUMN_LIST _ predicate: PREDICATE_EXPR? {
+SHOW_STATEMENT =  "SHOW"i SPACE columns: COLUMN_LIST _ predicate: PREDICATE_EXPR? {
   @make.show columns, predicate
 }
 
-COLUMN_LIST = left:COLUMN right:(_ COMMA _ COLUMN)* {
-  columns = [left.value]
-  for nodes in right
-    for node in nodes
-      if node.type is 'literal'
-        columns.push node.value
+COLUMN_LIST = left:COLUMN_LITERAL rights:(_ COMMA _ v:COLUMN_LITERAL {v})* {
+  columns = [left]
+  for right in rights
+    columns.push right
   @make.columns(columns)
 }
 
-COLUMN = COLUMN_LITERAL
-
 PREDICATE_EXPR = "WHERE"i _ list: PREDICATE_LIST { list }
 
-PREDICATE_LIST = left:PREDICATE right:(_ COMMA _ PREDICATE)* {
+PREDICATE_LIST = left:PREDICATE rights:(_ COMMA _ v:PREDICATE {v})* {
   predicates = []
   predicates.push left
-  for nodes in right
-    for node in nodes
-      if node.type is 'predicate'
-        predicates.push node
-  @make.predicateAnd predicates
+  for right in rights
+    predicates.push right
+  @make.predicate.and predicates
 }
 
 PREDICATE =
-  key:COLUMN_LITERAL _ "=" _ value:VALUE_LITERAL {
-    @make.predicateSingle(key.value, [value.value])
+  key:VARIABLE_LITERAL _ "=" _ value:VALUE_LITERAL {
+    @make.predicate.single(key, [value.value])
   } /
-  key:COLUMN_LITERAL _ "IN"i _ "(" _ values:VALUE_LIST _ ")" {
-    @make.predicateSingle(key.value, values)
+  key:VARIABLE_LITERAL _ "IN"i _ "(" _ values:VALUE_LIST _ ")" {
+    @make.predicate.single(key, values)
   }
 
 VALUE_LIST = left:VALUE_LITERAL right:(_ COMMA _ VALUE_LITERAL)* {
@@ -138,20 +168,29 @@ VALUE_LIST = left:VALUE_LITERAL right:(_ COMMA _ VALUE_LITERAL)* {
 
 VALUE_LITERAL = STRING_LITERAL
 
-NUMBER_LITERAL = [0-9]+ / ([0-9]+ "." [0-9]+)
-
 STRING_LITERAL =
-  value: $ ('"' ([^"])* '"') {@make.literal value} /
-  value: $ ("'" ([^'])* "'") {@make.literal value} /
-  value: $ ([a-zA-Z0-9.]+)   {@make.literal value}
+  '"' value:($ [^"]*) '"'  {@make.literal value} /
+  "'" value:($ [^']*) "'"  {@make.literal value} /
+  value: $ ([a-zA-Z0-9.]+) {@make.literal value}
 
-FUNCTION_LITERAL =      value: $ [a-zA-Z]+             {@make.literal value}
-VARIABLE_LITERAL =      value: $ [a-zA-Z0-9.]+         {@make.literal value}
-DURATION_UNIT_LITERAL = value: $ [a-z]+                {@make.literal value}
-SAMPLER_LITERAL =       value: $ [a-z]+                {@make.literal value}
-COLUMN_LITERAL =        value: $ ([a-zA-Z0-9.]+ / "*") {@make.literal value}
+VARIABLE_LITERAL =             $ (TOKEN ("." TOKEN)*)
+COLUMN_LITERAL =               $ (TOKEN / "*")
+TOKEN =                        $ ([a-zA-Z][a-zA-Z0-9]*)
+DURATION_UNIT_LITERAL = value: $ [a-z]+                  {@make.literal value}
+FUNCTION_LITERAL =             $ [a-zA-Z]+
+SAMPLER_LITERAL =       value: $ [a-z]+                  {@make.literal value}
+NUMBER_LITERAL =        value: $ ([0-9]+ / ([0-9]+ "." [0-9]+)) {
+  # TODO - obtain the correct parsing function for number.
+  parseFloat value
+}
+// operators
+OP_ADDITIVE =       $ [+-]
+OP_MULTIPLICATIVE = $ [*/]
+
 
 // represents ignorable whitespace.
-_ = [ ]* { this.SPACE_NODE }
+_ =     [ ]* { this.SPACE_NODE }
+// represents mandatory whitespace
+SPACE = [ ]+ { this.SPACE_NODE }
 
 COMMA = "," { this.COMMA_NODE }

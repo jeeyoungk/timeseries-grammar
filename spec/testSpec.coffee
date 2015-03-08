@@ -11,8 +11,13 @@ describe "testing the parser ", ->
     "show foo where v in ('a')"
     "show foo where v in (a, b, c)"
     "show foo where v in ('a', 'b', 'c')"
+    "show * where v = 'apple' , w in (banana, \"cherry\")"
     # select statements
+    "select cpu.abc where datacenter = sjc1b"
+    # this is alias for
     "select x"
+    "select (x)"
+    "select ((x))"
     "select x, y, z"
     "select x where v = 'a'"
     "select max(x), min(x)"
@@ -21,8 +26,8 @@ describe "testing the parser ", ->
     "select x + y * (z - 2) / 2"
     "select x.y.z"
     "select x group by hostname"
-    'select x range ("3 hours ago", ?)'
-    "select x range ('3 hours ago', ?)"
+    'select x range ("3 hours ago", "now")'
+    "select x range ('3 hours ago', 'now')"
     "select x sample to 5 minute by min"
     "select x sample to 5 minute by max"
     "select x sample to 5 minute by sum"
@@ -30,6 +35,8 @@ describe "testing the parser ", ->
   ]
   invalid_inputs = [
     "select;"
+    "show foowhere v = v"
+    "showfoo"
   ]
   for input in valid_inputs
     do (input) ->
@@ -43,8 +50,7 @@ describe "testing the parser ", ->
 
 describe "testing the parse tree", ->
   valid_inputs = [
-    # "show apple, banana where v in (apple, banana), w = a"
-    "select x sample to 5 minute by min"
+    "select x range ('3 hours ago', 'now') sample to 5 minute by min"
   ]
   for input in valid_inputs
     do (input) ->
