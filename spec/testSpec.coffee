@@ -14,10 +14,10 @@ describe "testing the parser ", ->
     "show * where v = 'apple' , w in (banana, \"cherry\")"
     # select statements
     "select cpu.abc where datacenter = sjc1b"
-    # this is alias for
     "select x"
     "select (x)"
     "select ((x))"
+    "select (((x)))"
     "select x, y, z"
     "select x where v = 'a'"
     "select max(x), min(x)"
@@ -32,11 +32,23 @@ describe "testing the parser ", ->
     "select x sample to 5 minute by max"
     "select x sample to 5 minute by sum"
     "select x sample to 5 minute by mean"
+    "select x from a b, c d"
+    "select x from a as b, c as d"
+    # select is optional
+    "selectx"
+    "showx"
+    # semantics
+    # always JOIN on same columns.
+    "x"
+    "x + y"
+    "max(x) + max(y)"
+    "max(x + y)" # join first, then group.
+    "max(x + max(y))" # max first, then join, then group.
+    # "sum(failure) / (sum(success) + sum(failure)) from api.metric success, api.metric failure where success.type = 'success', failure.type = 'failure' group by api"
   ]
   invalid_inputs = [
     "select;"
     "show foowhere v = v"
-    "showfoo"
   ]
   for input in valid_inputs
     do (input) ->

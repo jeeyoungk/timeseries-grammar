@@ -46,8 +46,8 @@
         makeSubnode("compute", "constant", {value})
     }
   }
-  @SPACE_NODE = makeNode("whitespace")
-  @COMMA_NODE = makeNode("comma")
+  @SPACE_NODE = makeNode "whitespace" 
+  @COMMA_NODE = makeNode "comma" 
 }
 
 // language for querying metric definition/
@@ -60,8 +60,9 @@
 start = SHOW_STATEMENT / SELECT_STATEMENT
 
 SELECT_STATEMENT =
-  "SELECT"i _
+  ("SELECT"i SPACE)?
   computes:COMPUTE_EXPR_LIST _
+  from:FROM_EXPR? _
   predicate:PREDICATE_EXPR? _
   group:GROUP_EXPR? _
   range:RANGE_EXPR? _
@@ -107,6 +108,13 @@ COMPUTE_SINGLE_EXPR =
   value: VARIABLE_LITERAL {
     @make.compute.variable value
   }
+
+// from expression
+FROM_EXPR = "FROM"i _ FROM_LIST
+
+FROM_LIST = FROM_SINGLE_EXPRESSION (_ COMMA _ FROM_SINGLE_EXPRESSION)*
+
+FROM_SINGLE_EXPRESSION = VARIABLE_LITERAL _ "AS"i? _ ALIAS_LITERAL
 
 // group expressions
 
@@ -173,8 +181,10 @@ STRING_LITERAL =
   "'" value:($ [^']*) "'"  {@make.literal value} /
   value: $ ([a-zA-Z0-9.]+) {@make.literal value}
 
-VARIABLE_LITERAL =             $ (TOKEN ("." TOKEN)*)
+ALIAS_LITERAL =                $ (TOKEN)
 COLUMN_LITERAL =               $ (TOKEN / "*")
+SERIES_LITERAL =               $ (TOKEN ("." TOKEN)*)
+VARIABLE_LITERAL =             $ (TOKEN ("." TOKEN)*)
 TOKEN =                        $ ([a-zA-Z][a-zA-Z0-9]*)
 DURATION_UNIT_LITERAL = value: $ [a-z]+                  {@make.literal value}
 FUNCTION_LITERAL =             $ [a-zA-Z]+
