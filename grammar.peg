@@ -46,8 +46,8 @@
         makeSubnode("compute", "constant", {value})
     }
   }
-  @SPACE_NODE = makeNode "whitespace" 
-  @COMMA_NODE = makeNode "comma" 
+  @SPACE_NODE = makeNode "whitespace"
+  @COMMA_NODE = makeNode "comma"
 }
 
 // language for querying metric definition/
@@ -147,7 +147,7 @@ COLUMN_LIST = left:COLUMN_LITERAL rights:(_ COMMA _ v:COLUMN_LITERAL {v})* {
 
 PREDICATE_EXPR = "WHERE"i _ list: PREDICATE_LIST { list }
 
-PREDICATE_LIST = left:PREDICATE rights:(_ COMMA _ v:PREDICATE {v})* {
+PREDICATE_LIST = left:PREDICATE rights:(_ (COMMA / "AND"i) _ v:PREDICATE {v})* {
   predicates = []
   predicates.push left
   for right in rights
