@@ -1,4 +1,5 @@
-grammar = require "../grammar.npm"
+# grammar = require "./grammar.npm"
+grammar = PEG
 
 """
 Design:
@@ -58,12 +59,6 @@ describe "testing the parser ", ->
     from api.metric success, api.metric failure
     where success.type = 'success', failure.type = 'failure'
     group by api
-    "
-    "
-    sum(qps) / sum(totalQps)
-    from qps as qps, qps as totalQps
-    where app = 'esperanto'
-    group by action, totalQps.env
     "
     # The examples of hard queries that we want to perform.
   ]

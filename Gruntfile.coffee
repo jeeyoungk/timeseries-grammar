@@ -37,6 +37,12 @@ module.exports = (grunt) ->
     bower_concat:
       main:
         dest: LIB_COMPILED
+    jasmine:
+      main:
+        src: "grammar.browser.js"
+        options:
+          specs: "build/spec.js"
+
 
   grunt.loadNpmTasks 'grunt-bower-concat'
   grunt.loadNpmTasks 'grunt-contrib-coffee'
